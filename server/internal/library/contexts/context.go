@@ -15,12 +15,12 @@ import (
 
 // Init 初始化上下文对象指针到上下文对象中，以便后续的请求流程中可以修改
 func Init(r *ghttp.Request, customCtx *model.Context) {
-	r.SetCtxVar(consts.ContextKey, customCtx)
+	r.SetCtxVar(consts.ContextHTTPKey, customCtx)
 }
 
 // Get 获得上下文变量，如果没有设置，那么返回nil
 func Get(ctx context.Context) *model.Context {
-	value := ctx.Value(consts.ContextKey)
+	value := ctx.Value(consts.ContextHTTPKey)
 	if value == nil {
 		return nil
 	}
@@ -34,7 +34,7 @@ func Get(ctx context.Context) *model.Context {
 func SetUser(ctx context.Context, user *model.Identity) {
 	c := Get(ctx)
 	if c == nil {
-		g.Log().Warningf(ctx, "contexts.SetUser,  c == nil ")
+		g.Log().Warning(ctx, "contexts.SetUser, c == nil ")
 		return
 	}
 	c.User = user
@@ -44,7 +44,7 @@ func SetUser(ctx context.Context, user *model.Identity) {
 func SetResponse(ctx context.Context, response *model.Response) {
 	c := Get(ctx)
 	if c == nil {
-		g.Log().Warningf(ctx, "contexts.SetResponse,  c == nil ")
+		g.Log().Warning(ctx, "contexts.SetResponse, c == nil ")
 		return
 	}
 	c.Response = response
@@ -54,20 +54,10 @@ func SetResponse(ctx context.Context, response *model.Response) {
 func SetModule(ctx context.Context, module string) {
 	c := Get(ctx)
 	if c == nil {
-		g.Log().Warningf(ctx, "contexts.SetModule,  c == nil ")
+		g.Log().Warning(ctx, "contexts.SetModule, c == nil ")
 		return
 	}
 	c.Module = module
-}
-
-// SetTakeUpTime 设置请求耗时
-func SetTakeUpTime(ctx context.Context, takeUpTime int64) {
-	c := Get(ctx)
-	if c == nil {
-		g.Log().Warningf(ctx, "contexts.SetTakeUpTime,  c == nil ")
-		return
-	}
-	c.TakeUpTime = takeUpTime
 }
 
 // GetUser 获取用户信息
@@ -120,7 +110,7 @@ func GetModule(ctx context.Context) string {
 func SetAddonName(ctx context.Context, name string) {
 	c := Get(ctx)
 	if c == nil {
-		g.Log().Warningf(ctx, "contexts.SetAddonName,  c == nil ")
+		g.Log().Warning(ctx, "contexts.SetAddonName, c == nil ")
 		return
 	}
 	Get(ctx).AddonName = name
@@ -142,4 +132,36 @@ func GetAddonName(ctx context.Context) string {
 		return ""
 	}
 	return Get(ctx).AddonName
+}
+
+// SetData 设置额外数据
+func SetData(ctx context.Context, k string, v interface{}) {
+	c := Get(ctx)
+	if c == nil {
+		g.Log().Warning(ctx, "contexts.SetData, c == nil ")
+		return
+	}
+	Get(ctx).Data[k] = v
+}
+
+// SetDataMap 设置额外数据
+func SetDataMap(ctx context.Context, vs g.Map) {
+	c := Get(ctx)
+	if c == nil {
+		g.Log().Warning(ctx, "contexts.SetData, c == nil ")
+		return
+	}
+
+	for k, v := range vs {
+		Get(ctx).Data[k] = v
+	}
+}
+
+// GetData 获取额外数据
+func GetData(ctx context.Context) g.Map {
+	c := Get(ctx)
+	if c == nil {
+		return nil
+	}
+	return c.Data
 }

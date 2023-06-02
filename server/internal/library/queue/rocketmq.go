@@ -3,18 +3,16 @@
 // @Copyright  Copyright (c) 2023 HotGo CLI
 // @Author  Ms <133814250@qq.com>
 // @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
-//
 package queue
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"github.com/apache/rocketmq-client-go/v2"
 	"github.com/apache/rocketmq-client-go/v2/consumer"
 	"github.com/apache/rocketmq-client-go/v2/primitive"
 	"github.com/apache/rocketmq-client-go/v2/producer"
 	"github.com/apache/rocketmq-client-go/v2/rlog"
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 )
 
@@ -57,7 +55,7 @@ func (r *RocketMq) SendMsg(topic string, body string) (mqMsg MqMsg, err error) {
 // SendByteMsg 生产数据
 func (r *RocketMq) SendByteMsg(topic string, body []byte) (mqMsg MqMsg, err error) {
 	if r.producerIns == nil {
-		return mqMsg, errors.New("RocketMq producer not register")
+		return mqMsg, gerror.New("rocketMq producer not register")
 	}
 
 	result, err := r.producerIns.SendSync(context.Background(), &primitive.Message{
@@ -69,7 +67,7 @@ func (r *RocketMq) SendByteMsg(topic string, body []byte) (mqMsg MqMsg, err erro
 		return
 	}
 	if result.Status != primitive.SendOK {
-		return mqMsg, errors.New(fmt.Sprintf("RocketMq producer send msg error status:%v", result.Status))
+		return mqMsg, gerror.Newf("rocketMq producer send msg error status:%v", result.Status)
 	}
 
 	mqMsg = MqMsg{
@@ -81,10 +79,15 @@ func (r *RocketMq) SendByteMsg(topic string, body []byte) (mqMsg MqMsg, err erro
 	return mqMsg, nil
 }
 
+func (r *RocketMq) SendDelayMsg(topic string, body string, delaySecond int64) (mqMsg MqMsg, err error) {
+	err = gerror.New("implement me")
+	return
+}
+
 // ListenReceiveMsgDo 消费数据
 func (r *RocketMq) ListenReceiveMsgDo(topic string, receiveDo func(mqMsg MqMsg)) (err error) {
 	if r.consumerIns == nil {
-		return errors.New("RocketMq consumer not register")
+		return gerror.New("rocketMq consumer not register")
 	}
 
 	err = r.consumerIns.Subscribe(topic, consumer.MessageSelector{}, func(ctx context.Context, msgs ...*primitive.MessageExt) (consumer.ConsumeResult, error) {
@@ -100,15 +103,13 @@ func (r *RocketMq) ListenReceiveMsgDo(topic string, receiveDo func(mqMsg MqMsg))
 	})
 
 	if err != nil {
-		return err
+		return
 	}
 
-	err = r.consumerIns.Start()
-	if err != nil {
-		r.consumerIns.Unsubscribe(topic)
-		return err
+	if err = r.consumerIns.Start(); err != nil {
+		_ = r.consumerIns.Unsubscribe(topic)
+		return
 	}
-
 	return
 }
 
@@ -140,7 +141,6 @@ func RegisterRocketMqProducer(endPoints []string, groupName string, retry int) (
 	if err != nil {
 		return nil, err
 	}
-
 	return mqIns, nil
 }
 
@@ -162,6 +162,5 @@ func RegisterRocketMqConsumer(endPoints []string, groupName string) (mqIns *Rock
 	if err != nil {
 		return nil, err
 	}
-
 	return mqIns, nil
 }

@@ -3,7 +3,6 @@
 // @Copyright  Copyright (c) 2023 HotGo CLI
 // @Author  Ms <133814250@qq.com>
 // @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
-//
 package views
 
 import (
@@ -23,6 +22,13 @@ var defaultFormModeMap = map[string]string{
 	TsTypeAny:     FormModeInput,
 }
 
+var defaultEditFields = map[string]bool{
+	"id":         false,
+	"created_at": false,
+	"updated_at": false,
+	"deleted_at": false,
+}
+
 var defaultEditSwitch = map[string]bool{
 	"id":         false,
 	"level":      false,
@@ -33,6 +39,7 @@ var defaultEditSwitch = map[string]bool{
 	"updated_at": false,
 	"deleted_at": false,
 }
+
 var defaultListSwitch = map[string]bool{
 	"level":      false,
 	"tree":       false,
@@ -109,7 +116,7 @@ func setDefault(field *sysin.GenCodesColumnListModel) {
 
 	setDefaultValue(field)
 
-	if field.IsAllowNull == "YES" {
+	if field.IsAllowNull == "NO" {
 		field.Required = true
 	}
 
@@ -133,6 +140,10 @@ func setDefaultEdit(field *sysin.GenCodesColumnListModel) {
 	if field.Index == consts.GenCodesIndexPK {
 		field.IsEdit = false
 		return
+	}
+
+	if df, ok := defaultEditFields[field.Name]; ok {
+		field.IsEdit = df
 	}
 
 	if df, ok := defaultEditSwitch[field.Name]; ok {
@@ -224,7 +235,6 @@ func setDefaultList(field *sysin.GenCodesColumnListModel) {
 	if df, ok := defaultListSwitch[field.Name]; ok {
 		field.IsList = df
 	}
-	return
 }
 
 // setDefaultExport 设置默认导出
@@ -244,7 +254,6 @@ func setDefaultExport(field *sysin.GenCodesColumnListModel) {
 	if df, ok := defaultExportSwitch[field.Name]; ok {
 		field.IsExport = df
 	}
-	return
 }
 
 // setDefaultQuery 设置默认查询

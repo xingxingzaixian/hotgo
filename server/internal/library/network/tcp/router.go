@@ -1,13 +1,22 @@
+// Package tcp
+// @Link  https://github.com/bufanyun/hotgo
+// @Copyright  Copyright (c) 2023 HotGo CLI
+// @Author  Ms <133814250@qq.com>
+// @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
 package tcp
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/net/gtcp"
+	"github.com/gogf/gf/v2/os/grpool"
 	"github.com/gogf/gf/v2/util/gconv"
 )
 
-type RouterHandler func(args ...interface{})
+var GoPool = grpool.New(100)
+
+type RouterHandler func(ctx context.Context, args ...interface{})
 
 // Message 路由消息
 type Message struct {
@@ -36,4 +45,27 @@ func RecvPkg(conn *gtcp.Conn) (*Message, error) {
 		}
 		return msg, err
 	}
+}
+
+// MsgPkg 打包消息
+func MsgPkg(data interface{}, auth *AuthMeta, traceID string) string {
+	// 打包签名
+	msg := PkgSign(data, auth.AppId, auth.SecretKey, traceID)
+
+	// 打包响应消息
+	PkgResponse(data)
+
+	if msg == nil {
+		return ""
+	}
+
+	return msg.TraceID
+}
+
+// doHandleRouterMsg 处理路由消息
+func doHandleRouterMsg(fun RouterHandler, ctx context.Context, cancel context.CancelFunc, args ...interface{}) {
+	_ = GoPool.Add(ctx, func(ctx context.Context) {
+		fun(ctx, args...)
+		cancel()
+	})
 }

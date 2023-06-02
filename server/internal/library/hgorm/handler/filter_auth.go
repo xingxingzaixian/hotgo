@@ -1,3 +1,8 @@
+// Package handler
+// @Link  https://github.com/bufanyun/hotgo
+// @Copyright  Copyright (c) 2023 HotGo CLI
+// @Author  Ms <133814250@qq.com>
+// @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
 package handler
 
 import (
@@ -56,7 +61,7 @@ func FilterAuthWithField(filterField string) func(m *gdb.Model) *gdb.Model {
 		}
 
 		if role == nil {
-			g.Log().Panicf(ctx, "failed to role information roleModel == nil")
+			g.Log().Panic(ctx, "failed to role information roleModel == nil")
 		}
 
 		sq := g.Model("admin_member").Fields("id")
@@ -77,7 +82,7 @@ func FilterAuthWithField(filterField string) func(m *gdb.Model) *gdb.Model {
 		case consts.RoleDataSelfAndAllSub: // 自己和全部下级
 			m = m.WhereIn(filterField, GetSelfAndAllSub(co.User.Id))
 		default:
-			g.Log().Panicf(ctx, "dataScope is not registered")
+			g.Log().Panic(ctx, "dataScope is not registered")
 		}
 
 		return m

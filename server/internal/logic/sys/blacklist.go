@@ -9,17 +9,20 @@ import (
 	"context"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/os/gtime"
 	"hotgo/internal/consts"
 	"hotgo/internal/dao"
 	"hotgo/internal/global"
+	"hotgo/internal/model/input/form"
 	"hotgo/internal/model/input/sysin"
 	"hotgo/internal/service"
 	"hotgo/utility/convert"
 	"hotgo/utility/validate"
+	"sync"
 )
 
-type sSysBlacklist struct{}
+type sSysBlacklist struct {
+	sync.RWMutex
+}
 
 func NewSysBlacklist() *sSysBlacklist {
 	return &sSysBlacklist{}
@@ -33,12 +36,7 @@ func init() {
 func (s *sSysBlacklist) Delete(ctx context.Context, in sysin.BlacklistDeleteInp) (err error) {
 	defer s.VariableLoad(ctx, err)
 	_, err = dao.SysBlacklist.Ctx(ctx).Where("id", in.Id).Delete()
-	if err != nil {
-		err = gerror.Wrap(err, consts.ErrorORM)
-		return err
-	}
-
-	return nil
+	return
 }
 
 // Edit 修改/新增
@@ -46,29 +44,18 @@ func (s *sSysBlacklist) Edit(ctx context.Context, in sysin.BlacklistEditInp) (er
 	defer s.VariableLoad(ctx, err)
 	if in.Ip == "" {
 		err = gerror.New("ip不能为空")
-		return err
+		return
 	}
 
 	// 修改
-	in.UpdatedAt = gtime.Now()
 	if in.Id > 0 {
 		_, err = dao.SysBlacklist.Ctx(ctx).Where("id", in.Id).Data(in).Update()
-		if err != nil {
-			err = gerror.Wrap(err, consts.ErrorORM)
-			return err
-		}
-
-		return nil
+		return
 	}
 
 	// 新增
-	in.CreatedAt = gtime.Now()
 	_, err = dao.SysBlacklist.Ctx(ctx).Data(in).Insert()
-	if err != nil {
-		err = gerror.Wrap(err, consts.ErrorORM)
-		return err
-	}
-	return nil
+	return
 }
 
 // Status 更新部门状态
@@ -76,50 +63,44 @@ func (s *sSysBlacklist) Status(ctx context.Context, in sysin.BlacklistStatusInp)
 	defer s.VariableLoad(ctx, err)
 	if in.Id <= 0 {
 		err = gerror.New("ID不能为空")
-		return err
+		return
 	}
 
 	if in.Status <= 0 {
 		err = gerror.New("状态不能为空")
-		return err
+		return
 	}
 
-	if !validate.InSliceInt(consts.StatusMap, in.Status) {
+	if !validate.InSliceInt(consts.StatusSlice, in.Status) {
 		err = gerror.New("状态不正确")
-		return err
+		return
 	}
 
 	// 修改
-	in.UpdatedAt = gtime.Now()
 	_, err = dao.SysBlacklist.Ctx(ctx).Where("id", in.Id).Data("status", in.Status).Update()
-	if err != nil {
-		err = gerror.Wrap(err, consts.ErrorORM)
-		return err
-	}
-
-	return nil
+	return
 }
 
 // MaxSort 最大排序
-func (s *sSysBlacklist) MaxSort(ctx context.Context, in sysin.BlacklistMaxSortInp) (*sysin.BlacklistMaxSortModel, error) {
-	var res sysin.BlacklistMaxSortModel
+func (s *sSysBlacklist) MaxSort(ctx context.Context, in sysin.BlacklistMaxSortInp) (res *sysin.BlacklistMaxSortModel, err error) {
 	if in.Id > 0 {
-		if err := dao.SysBlacklist.Ctx(ctx).Where("id", in.Id).Order("sort desc").Scan(&res); err != nil {
-			err = gerror.Wrap(err, consts.ErrorORM)
-			return nil, err
+		if err = dao.SysBlacklist.Ctx(ctx).Where("id", in.Id).Order("sort desc").Scan(&res); err != nil {
+			return
 		}
 	}
-	res.Sort = res.Sort + 10
-	return &res, nil
+
+	if res == nil {
+		res = new(sysin.BlacklistMaxSortModel)
+	}
+
+	res.Sort = form.DefaultMaxSort(ctx, res.Sort)
+	return
 }
 
 // View 获取指定字典类型信息
 func (s *sSysBlacklist) View(ctx context.Context, in sysin.BlacklistViewInp) (res *sysin.BlacklistViewModel, err error) {
-	if err = dao.SysBlacklist.Ctx(ctx).Where("id", in.Id).Scan(&res); err != nil {
-		err = gerror.Wrap(err, consts.ErrorORM)
-		return nil, err
-	}
-	return res, nil
+	err = dao.SysBlacklist.Ctx(ctx).Where("id", in.Id).Scan(&res)
+	return
 }
 
 // List 获取列表
@@ -138,20 +119,17 @@ func (s *sSysBlacklist) List(ctx context.Context, in sysin.BlacklistListInp) (li
 
 	totalCount, err = mod.Count()
 	if err != nil {
-		err = gerror.Wrap(err, consts.ErrorORM)
-		return list, totalCount, err
+		return
 	}
 
 	if totalCount == 0 {
-		return list, totalCount, nil
+		return
 	}
 
 	if err = mod.Page(in.Page, in.PerPage).Order("id desc").Scan(&list); err != nil {
-		err = gerror.Wrap(err, consts.ErrorORM)
-		return list, totalCount, err
+		return
 	}
-
-	return list, totalCount, err
+	return
 }
 
 // VariableLoad 变化加载
@@ -163,6 +141,9 @@ func (s *sSysBlacklist) VariableLoad(ctx context.Context, err error) {
 
 // Load 加载黑名单
 func (s *sSysBlacklist) Load(ctx context.Context) {
+	s.RLock()
+	defer s.RUnlock()
+
 	global.Blacklists = make(map[string]struct{})
 
 	array, err := dao.SysBlacklist.Ctx(ctx).
@@ -177,7 +158,7 @@ func (s *sSysBlacklist) Load(ctx context.Context) {
 	for _, v := range array {
 		list := convert.IpFilterStrategy(v.String())
 		if len(list) > 0 {
-			for k, _ := range list {
+			for k := range list {
 				global.Blacklists[k] = struct{}{}
 			}
 		}

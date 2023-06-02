@@ -115,6 +115,62 @@ type SmsConfig struct {
 	TencentTemplate  []*SmsTemplate `json:"smsTencentTemplate"`
 }
 
+type PayConfig struct {
+	Debug bool `json:"payDebug"`
+	// 支付宝
+	AliPayAppId             string `json:"payAliPayAppId"`
+	AliPayPrivateKey        string `json:"payAliPayPrivateKey"`
+	AliPayAppCertPublicKey  string `json:"payAliPayAppCertPublicKey"`
+	AliPayRootCert          string `json:"payAliPayRootCert"`
+	AliPayCertPublicKeyRSA2 string `json:"payAliPayCertPublicKeyRSA2"`
+	// 微信支付
+	WxPayAppId      string `json:"payWxPayAppId"`
+	WxPayMchId      string `json:"payWxPayMchId"`
+	WxPaySerialNo   string `json:"payWxPaySerialNo"`
+	WxPayAPIv3Key   string `json:"payWxPayAPIv3Key"`
+	WxPayPrivateKey string `json:"payWxPayPrivateKey"`
+	// QQ支付
+	QQPayAppId  string `json:"payQQPayAppId"`
+	QQPayMchId  string `json:"payQQPayMchId"`
+	QQPayApiKey string `json:"payQQPayApiKey"`
+}
+
+// WechatOfficialAccountConfig 微信公众号配置
+type WechatOfficialAccountConfig struct {
+	OfficialAppID          string `json:"officialAccountAppId"`          // appid
+	OfficialAppSecret      string `json:"officialAccountAppSecret"`      // app secret
+	OfficialToken          string `json:"officialAccountToken"`          // token
+	OfficialEncodingAESKey string `json:"officialAccountEncodingAESKey"` // EncodingAESKey
+}
+
+// WechatOpenPlatformConfig 微信开放平台配置
+type WechatOpenPlatformConfig struct {
+	OpenAppID          string `json:"openPlatformAppId"`          // appid
+	OpenAppSecret      string `json:"openPlatformAppSecret"`      // app secret
+	OpenToken          string `json:"openPlatformToken"`          // token
+	OpenEncodingAESKey string `json:"openPlatformEncodingAESKey"` // EncodingAESKey
+}
+
+// WechatConfig 微信配置
+type WechatConfig struct {
+	*WechatOfficialAccountConfig
+	*WechatOpenPlatformConfig
+}
+
+// LoginConfig 登录配置
+type LoginConfig struct {
+	RegisterSwitch int     `json:"loginRegisterSwitch"`
+	CaptchaSwitch  int     `json:"loginCaptchaSwitch"`
+	Avatar         string  `json:"loginAvatar"`
+	RoleId         int64   `json:"loginRoleId"`
+	DeptId         int64   `json:"loginDeptId"`
+	PostIds        []int64 `json:"loginPostIds"`
+	Protocol       string  `json:"loginProtocol"`
+	Policy         string  `json:"loginPolicy"`
+	AutoOpenId     int     `json:"loginAutoOpenId"`
+	ForceInvite    int     `json:"loginForceInvite"`
+}
+
 ///////////// 以下是本地配置
 
 // SSLConfig https配置
@@ -200,4 +256,37 @@ type BuildAddonConfig struct {
 type CacheConfig struct {
 	Adapter string `json:"adapter"`
 	FileDir string `json:"fileDir"`
+}
+
+type TCPServerConfig struct {
+	Address string `json:"address"`
+}
+
+type TCPClientConfig struct {
+	Cron *TCPClientConnConfig `json:"cron"`
+	Auth *TCPClientConnConfig `json:"auth"`
+}
+
+type TCPClientConnConfig struct {
+	Group     string `json:"group"`
+	Name      string `json:"name"`
+	Address   string `json:"address"`
+	AppId     string `json:"appId"`
+	SecretKey string `json:"secretKey"`
+}
+
+// TCPConfig tcp服务器配置
+type TCPConfig struct {
+	Server *TCPServerConfig `json:"server"`
+	Client *TCPClientConfig `json:"client"`
+}
+
+// TokenConfig 登录令牌配置
+type TokenConfig struct {
+	SecretKey       string `json:"secretKey"`
+	Expires         int64  `json:"expires"`
+	AutoRefresh     bool   `json:"autoRefresh"`
+	RefreshInterval int64  `json:"refreshInterval"`
+	MaxRefreshTimes int64  `json:"maxRefreshTimes"`
+	MultiLogin      bool   `json:"multiLogin"`
 }

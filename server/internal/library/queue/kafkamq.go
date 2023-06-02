@@ -3,7 +3,6 @@
 // @Copyright  Copyright (c) 2023 HotGo CLI
 // @Author  Ms <133814250@qq.com>
 // @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
-//
 package queue
 
 import (
@@ -17,7 +16,6 @@ import (
 )
 
 type KafkaMq struct {
-	endPoints   []string
 	Partitions  int32
 	producerIns sarama.AsyncProducer
 	consumerIns sarama.ConsumerGroup
@@ -76,6 +74,11 @@ func (r *KafkaMq) SendByteMsg(topic string, body []byte) (mqMsg MqMsg, err error
 	return mqMsg, nil
 }
 
+func (r *KafkaMq) SendDelayMsg(topic string, body string, delaySecond int64) (mqMsg MqMsg, err error) {
+	err = gerror.New("implement me")
+	return
+}
+
 // ListenReceiveMsgDo 消费数据
 func (r *KafkaMq) ListenReceiveMsgDo(topic string, receiveDo func(mqMsg MqMsg)) (err error) {
 	if r.consumerIns == nil {
@@ -124,7 +127,7 @@ func RegisterKafkaMqConsumer(connOpt KafkaConfig) (client MqConsumer, err error)
 	if err != nil {
 		return
 	}
-	if validateVersion(kfkVersion) == false {
+	if !validateVersion(kfkVersion) {
 		kfkVersion = sarama.V2_4_0_0
 	}
 
@@ -171,7 +174,7 @@ func doRegisterKafkaProducer(connOpt KafkaConfig, mqIns *KafkaMq) (err error) {
 	if err != nil {
 		return
 	}
-	if validateVersion(kfkVersion) == false {
+	if !validateVersion(kfkVersion) {
 		kfkVersion = sarama.V2_4_0_0
 	}
 

@@ -20,8 +20,8 @@ type AdminMember struct {
 	Username           interface{} // 帐号
 	PasswordHash       interface{} // 密码
 	Salt               interface{} // 密码盐
-	AuthKey            interface{} // 授权令牌
 	PasswordResetToken interface{} // 密码重置令牌
+	Integral           interface{} // 积分
 	Balance            interface{} // 余额
 	Avatar             interface{} // 头像
 	Sex                interface{} // 性别
@@ -34,6 +34,7 @@ type AdminMember struct {
 	Pid                interface{} // 上级管理员ID
 	Level              interface{} // 关系树等级
 	Tree               interface{} // 关系树
+	InviteCode         interface{} // 邀请码
 	Cash               *gjson.Json // 提现配置
 	LastActiveAt       *gtime.Time // 最后活跃时间
 	Remark             interface{} // 备注

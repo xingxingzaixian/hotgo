@@ -3,7 +3,6 @@
 // @Copyright  Copyright (c) 2023 HotGo CLI
 // @Author  Ms <133814250@qq.com>
 // @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
-//
 package sys
 
 import (
@@ -12,6 +11,7 @@ import (
 	"hotgo/api/admin/dict"
 	"hotgo/internal/model/input/sysin"
 	"hotgo/internal/service"
+	"hotgo/utility/validate"
 )
 
 var (
@@ -21,7 +21,7 @@ var (
 type cDictType struct{}
 
 // Tree 树
-func (c *cDictType) Tree(ctx context.Context, req *dict.TypeTreeReq) (res *dict.TypeTreeRes, err error) {
+func (c *cDictType) Tree(ctx context.Context, _ *dict.TypeTreeReq) (res *dict.TypeTreeRes, err error) {
 	res = new(dict.TypeTreeRes)
 	res.List, err = service.SysDictType().Tree(ctx)
 	return
@@ -42,6 +42,10 @@ func (c *cDictType) Delete(ctx context.Context, req *dict.TypeDeleteReq) (res *d
 func (c *cDictType) Edit(ctx context.Context, req *dict.TypeEditReq) (res *dict.TypeEditRes, err error) {
 	var in sysin.DictTypeEditInp
 	if err = gconv.Scan(req, &in); err != nil {
+		return
+	}
+
+	if err = validate.PreFilter(ctx, &in); err != nil {
 		return
 	}
 

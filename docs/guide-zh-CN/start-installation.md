@@ -8,8 +8,8 @@
 ### 环境要求
 
 - node版本 >= v16.0.0
-- golang版本 >= v1.18
-- goframe版本 >=v2.3.2
+- golang版本 >= v1.19
+- goframe版本 >=v2.4.1
 - mysql版本 >=5.7
 
 > 必须先看[环境搭建文档](start-environment.md)，如果安装遇到问题务必先查看[常见问题文档](start-issue.md)
@@ -60,7 +60,7 @@ database:
       go mod tidy  
       
       # 查看命令行方法
-      go run main.go hlep
+      go run main.go help
       
       # 启动所有服务
       go run main.go  # 热编译启动： gf run main.go

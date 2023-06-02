@@ -3,7 +3,6 @@
 // @Copyright  Copyright (c) 2023 HotGo CLI
 // @Author  Ms <133814250@qq.com>
 // @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
-//
 package tree
 
 import (
@@ -50,11 +49,8 @@ func GetIds(tree string) (ids []int64) {
 			ids = append(ids, newId)
 		}
 	}
-
 	return
 }
-
-/////////////////////////// 转换类
 
 // GenTree 生成关系树
 func GenTree(menus []map[string]interface{}) (realMenu []map[string]interface{}) {
@@ -68,7 +64,7 @@ func GenTree(menus []map[string]interface{}) (realMenu []map[string]interface{})
 // GenTreeWithField 生成关系树 自定义生成属性
 func GenTreeWithField(menus []map[string]interface{}, op GenOption) (realMenu []map[string]interface{}) {
 	if len(menus) < 1 {
-		return nil
+		return
 	}
 
 	minPid := GetMinPid(menus, op.PidField)

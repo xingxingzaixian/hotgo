@@ -27,8 +27,8 @@ type AdminMemberColumns struct {
 	Username           string // 帐号
 	PasswordHash       string // 密码
 	Salt               string // 密码盐
-	AuthKey            string // 授权令牌
 	PasswordResetToken string // 密码重置令牌
+	Integral           string // 积分
 	Balance            string // 余额
 	Avatar             string // 头像
 	Sex                string // 性别
@@ -41,6 +41,7 @@ type AdminMemberColumns struct {
 	Pid                string // 上级管理员ID
 	Level              string // 关系树等级
 	Tree               string // 关系树
+	InviteCode         string // 邀请码
 	Cash               string // 提现配置
 	LastActiveAt       string // 最后活跃时间
 	Remark             string // 备注
@@ -58,8 +59,8 @@ var adminMemberColumns = AdminMemberColumns{
 	Username:           "username",
 	PasswordHash:       "password_hash",
 	Salt:               "salt",
-	AuthKey:            "auth_key",
 	PasswordResetToken: "password_reset_token",
+	Integral:           "integral",
 	Balance:            "balance",
 	Avatar:             "avatar",
 	Sex:                "sex",
@@ -72,6 +73,7 @@ var adminMemberColumns = AdminMemberColumns{
 	Pid:                "pid",
 	Level:              "level",
 	Tree:               "tree",
+	InviteCode:         "invite_code",
 	Cash:               "cash",
 	LastActiveAt:       "last_active_at",
 	Remark:             "remark",

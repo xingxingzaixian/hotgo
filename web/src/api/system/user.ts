@@ -77,6 +77,14 @@ export function SendBindSms() {
   });
 }
 
+export function SendSms(params) {
+  return http.request({
+    url: '/sms/send',
+    method: 'post',
+    params,
+  });
+}
+
 export function updateMemberCash(params) {
   return http.request({
     url: '/member/updateCash',
@@ -86,14 +94,71 @@ export function updateMemberCash(params) {
 }
 
 /**
+ * @description: 用户登录配置
+ */
+export function getLoginConfig() {
+  return http.request<BasicResponseModel>({
+    url: ApiEnum.SiteLoginConfig,
+    method: 'get',
+  });
+}
+
+/**
+ * @description: 用户注册
+ */
+export function register(params) {
+  return http.request<BasicResponseModel>(
+    {
+      url: ApiEnum.SiteRegister,
+      method: 'POST',
+      params,
+    },
+    {
+      isTransformResponse: false,
+    }
+  );
+}
+
+/**
  * @description: 用户登录
  */
 export function login(params) {
   return http.request<BasicResponseModel>(
     {
-      url: ApiEnum.SiteLogin,
+      url: ApiEnum.SiteAccountLogin,
       method: 'POST',
       params,
+    },
+    {
+      isTransformResponse: false,
+    }
+  );
+}
+
+/**
+ * @description: 手机号登录
+ */
+export function mobileLogin(params) {
+  return http.request<BasicResponseModel>(
+    {
+      url: ApiEnum.SiteMobileLogin,
+      method: 'POST',
+      params,
+    },
+    {
+      isTransformResponse: false,
+    }
+  );
+}
+
+/**
+ * @description: 用户注销
+ */
+export function logout() {
+  return http.request<BasicResponseModel>(
+    {
+      url: ApiEnum.SiteLogout,
+      method: 'POST',
     },
     {
       isTransformResponse: false,
@@ -115,15 +180,4 @@ export function changePassword(params, uid) {
       isTransformResponse: false,
     }
   );
-}
-
-/**
- * @description: 用户登出
- */
-export function logout(params) {
-  return http.request({
-    url: '/login/logout',
-    method: 'POST',
-    params,
-  });
 }

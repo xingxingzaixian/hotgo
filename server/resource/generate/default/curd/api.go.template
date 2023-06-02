@@ -4,7 +4,6 @@
 // @Author  Ms <133814250@qq.com>
 // @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
 // @AutoGenerate Version @{.hgVersion}
-// @AutoGenerate Date @{.nowTime}
 //
 package @{.varName | ToLower}
 
@@ -33,7 +32,7 @@ type ExportReq struct {
 
 type ExportRes struct{}
 @{end}
-@{ if eq .options.Step.HasView true }
+@{ if or (eq .options.Step.HasView true) (eq .options.Step.HasEdit true) }
 // ViewReq 获取@{.tableComment}指定信息
 type ViewReq struct {
 	g.Meta `path:"/@{.varName | LcFirst}/view" method:"get" tags:"@{.tableComment}" summary:"获取@{.tableComment}指定信息"`

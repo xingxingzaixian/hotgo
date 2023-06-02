@@ -3,19 +3,17 @@
 // @Copyright  Copyright (c) 2023 HotGo CLI
 // @Author  Ms <133814250@qq.com>
 // @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
-//
 package sys
 
 import (
 	"context"
 	"github.com/gogf/gf/v2/errors/gerror"
-	"github.com/gogf/gf/v2/os/gtime"
 	"hotgo/internal/consts"
 	"hotgo/internal/dao"
 	"hotgo/internal/model/entity"
+	"hotgo/internal/model/input/form"
 	"hotgo/internal/model/input/sysin"
 	"hotgo/internal/service"
-	"hotgo/utility/validate"
 )
 
 type sSysCronGroup struct{}
@@ -29,109 +27,70 @@ func init() {
 }
 
 // Delete 删除
-func (s *sSysCronGroup) Delete(ctx context.Context, in sysin.CronGroupDeleteInp) error {
-	_, err := dao.SysCronGroup.Ctx(ctx).Where("id", in.Id).Delete()
-	if err != nil {
-		err = gerror.Wrap(err, consts.ErrorORM)
-		return err
-	}
-
-	return nil
+func (s *sSysCronGroup) Delete(ctx context.Context, in sysin.CronGroupDeleteInp) (err error) {
+	_, err = dao.SysCronGroup.Ctx(ctx).Where("id", in.Id).Delete()
+	return
 }
 
 // Edit 修改/新增
 func (s *sSysCronGroup) Edit(ctx context.Context, in sysin.CronGroupEditInp) (err error) {
-	if in.Name == "" {
-		err = gerror.New("分组名称不能为空")
-		return err
-	}
-
 	// 修改
-	in.UpdatedAt = gtime.Now()
 	if in.Id > 0 {
-		_, err = dao.SysCronGroup.Ctx(ctx).Where("id", in.Id).Data(in).Update()
-		if err != nil {
+		if _, err = dao.SysCronGroup.Ctx(ctx).Fields(sysin.CronGroupUpdateFields{}).Where("id", in.Id).Data(in).Update(); err != nil {
 			err = gerror.Wrap(err, consts.ErrorORM)
-			return err
 		}
-
-		return nil
+		return
 	}
 
 	// 新增
-	in.CreatedAt = gtime.Now()
-	_, err = dao.SysCronGroup.Ctx(ctx).Data(in).Insert()
-	if err != nil {
+	if _, err = dao.SysCronGroup.Ctx(ctx).Fields(sysin.CronGroupInsertFields{}).Data(in).Insert(); err != nil {
 		err = gerror.Wrap(err, consts.ErrorORM)
-		return err
 	}
-	return nil
+
+	return
 }
 
-// Status 更新部门状态
+// Status 更新状态
 func (s *sSysCronGroup) Status(ctx context.Context, in sysin.CronGroupStatusInp) (err error) {
-	if in.Id <= 0 {
-		err = gerror.New("ID不能为空")
-		return err
-	}
-
-	if in.Status <= 0 {
-		err = gerror.New("状态不能为空")
-		return err
-	}
-
-	if !validate.InSliceInt(consts.StatusMap, in.Status) {
-		err = gerror.New("状态不正确")
-		return err
-	}
-
-	// 修改
-	in.UpdatedAt = gtime.Now()
-	_, err = dao.SysCronGroup.Ctx(ctx).Where("id", in.Id).Data("status", in.Status).Update()
-	if err != nil {
+	if _, err = dao.SysCronGroup.Ctx(ctx).Where("id", in.Id).Data("status", in.Status).Update(); err != nil {
 		err = gerror.Wrap(err, consts.ErrorORM)
-		return err
 	}
-
-	return nil
+	return
 }
 
 // MaxSort 最大排序
-func (s *sSysCronGroup) MaxSort(ctx context.Context, in sysin.CronGroupMaxSortInp) (*sysin.CronGroupMaxSortModel, error) {
-	var res sysin.CronGroupMaxSortModel
-
+func (s *sSysCronGroup) MaxSort(ctx context.Context, in sysin.CronGroupMaxSortInp) (res *sysin.CronGroupMaxSortModel, err error) {
 	if in.Id > 0 {
-		if err := dao.SysCronGroup.Ctx(ctx).Where("id", in.Id).Order("sort desc").Scan(&res); err != nil {
+		if err = dao.SysCronGroup.Ctx(ctx).Where("id", in.Id).Order("sort desc").Scan(&res); err != nil {
 			err = gerror.Wrap(err, consts.ErrorORM)
-			return nil, err
+			return
 		}
 	}
 
-	res.Sort = res.Sort + 10
+	if res == nil {
+		res = new(sysin.CronGroupMaxSortModel)
+	}
 
-	return &res, nil
+	res.Sort = form.DefaultMaxSort(ctx, res.Sort)
+	return
 }
 
-// View 获取指定字典类型信息
+// View 获取指定信息
 func (s *sSysCronGroup) View(ctx context.Context, in sysin.CronGroupViewInp) (res *sysin.CronGroupViewModel, err error) {
 	if err = dao.SysCronGroup.Ctx(ctx).Where("id", in.Id).Scan(&res); err != nil {
 		err = gerror.Wrap(err, consts.ErrorORM)
-		return nil, err
 	}
-
-	return res, nil
+	return
 }
 
 // List 获取列表
 func (s *sSysCronGroup) List(ctx context.Context, in sysin.CronGroupListInp) (list []*sysin.CronGroupListModel, totalCount int, err error) {
 	mod := dao.SysCronGroup.Ctx(ctx)
 
-	// 访问路径
 	if in.Name != "" {
 		mod = mod.WhereLike("name", "%"+in.Name+"%")
 	}
 
-	// 请求方式
 	if in.Status > 0 {
 		mod = mod.Where("status", in.Status)
 	}
@@ -139,19 +98,17 @@ func (s *sSysCronGroup) List(ctx context.Context, in sysin.CronGroupListInp) (li
 	totalCount, err = mod.Count()
 	if err != nil {
 		err = gerror.Wrap(err, consts.ErrorORM)
-		return list, totalCount, err
+		return
 	}
 
 	if totalCount == 0 {
-		return list, totalCount, nil
+		return
 	}
 
 	if err = mod.Page(in.Page, in.PerPage).Order("id desc").Scan(&list); err != nil {
 		err = gerror.Wrap(err, consts.ErrorORM)
-		return list, totalCount, err
 	}
-
-	return list, totalCount, err
+	return
 }
 
 // Select 选项

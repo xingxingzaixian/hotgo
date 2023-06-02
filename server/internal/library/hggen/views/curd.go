@@ -30,17 +30,18 @@ var Curd = gCurd{}
 type gCurd struct{}
 
 type CurdStep struct {
-	HasMaxSort  bool `json:"hasMaxSort"`
-	HasAdd      bool `json:"hasAdd"`
-	HasBatchDel bool `json:"hasBatchDel"`
-	HasExport   bool `json:"hasExport"`
-	HasEdit     bool `json:"hasEdit"`
-	HasDel      bool `json:"hasDel"`
-	HasView     bool `json:"hasView"`
-	HasStatus   bool `json:"hasStatus"`
-	HasSwitch   bool `json:"hasSwitch"`
-	HasCheck    bool `json:"hasCheck"`
-	HasMenu     bool `json:"hasMenu"`
+	HasMaxSort       bool `json:"hasMaxSort"`
+	HasAdd           bool `json:"hasAdd"`
+	HasBatchDel      bool `json:"hasBatchDel"`
+	HasExport        bool `json:"hasExport"`
+	HasNotFilterAuth bool `json:"hasNotFilterAuth"`
+	HasEdit          bool `json:"hasEdit"`
+	HasDel           bool `json:"hasDel"`
+	HasView          bool `json:"hasView"`
+	HasStatus        bool `json:"hasStatus"`
+	HasSwitch        bool `json:"hasSwitch"`
+	HasCheck         bool `json:"hasCheck"`
+	HasMenu          bool `json:"hasMenu"`
 }
 
 type CurdOptionsJoin struct {
@@ -96,12 +97,14 @@ func (l *gCurd) initInput(ctx context.Context, in *CurdPreviewInput) (err error)
 	in.content.Views = make(map[string]*sysin.GenFile)
 
 	// 加载主表配置
-	err = in.In.MasterColumns.Scan(&in.masterFields)
-	if err != nil {
-		return err
+	if err = in.In.MasterColumns.Scan(&in.masterFields); err != nil {
+		return
 	}
+
 	if len(in.masterFields) == 0 {
-		in.masterFields, err = DoTableColumns(ctx, sysin.GenCodesColumnListInp{Name: in.In.DbName, Table: in.In.TableName}, in.DaoConfig)
+		if in.masterFields, err = DoTableColumns(ctx, sysin.GenCodesColumnListInp{Name: in.In.DbName, Table: in.In.TableName}, in.DaoConfig); err != nil {
+			return
+		}
 	}
 
 	// 主键属性
@@ -111,9 +114,8 @@ func (l *gCurd) initInput(ctx context.Context, in *CurdPreviewInput) (err error)
 	}
 
 	// 加载选项
-	err = in.In.Options.Scan(&in.options)
-	if err != nil {
-		return err
+	if err = in.In.Options.Scan(&in.options); err != nil {
+		return
 	}
 
 	initStep(in)
@@ -130,8 +132,7 @@ func (l *gCurd) initInput(ctx context.Context, in *CurdPreviewInput) (err error)
 	}
 	in.options.ApiPrefix = apiPrefix
 
-	err = checkCurdPath(in.Config.Application.Crud.Templates[in.In.GenTemplate], in.In.AddonName)
-	if err != nil {
+	if err = checkCurdPath(in.Config.Application.Crud.Templates[in.In.GenTemplate], in.In.AddonName); err != nil {
 		return
 	}
 	in.options.TemplateGroup = in.Config.Application.Crud.Templates[in.In.GenTemplate].MasterPackage
@@ -144,6 +145,7 @@ func initStep(in *CurdPreviewInput) {
 	in.options.Step.HasAdd = gstr.InArray(in.options.HeadOps, "add")
 	in.options.Step.HasBatchDel = gstr.InArray(in.options.HeadOps, "batchDel")
 	in.options.Step.HasExport = gstr.InArray(in.options.HeadOps, "export")
+	in.options.Step.HasNotFilterAuth = gstr.InArray(in.options.ColumnOps, "notFilterAuth")
 	in.options.Step.HasEdit = gstr.InArray(in.options.ColumnOps, "edit")
 	in.options.Step.HasDel = gstr.InArray(in.options.ColumnOps, "del")
 	in.options.Step.HasView = gstr.InArray(in.options.ColumnOps, "view")
@@ -336,9 +338,7 @@ func (l *gCurd) DoPreview(ctx context.Context, in *CurdPreviewInput) (res *sysin
 	}
 
 	in.content.Config = in.Config
-	res = new(sysin.GenCodesPreviewModel)
 	res = in.content
-
 	return
 }
 

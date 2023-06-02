@@ -3,7 +3,6 @@
 // @Copyright  Copyright (c) 2023 HotGo CLI
 // @Author  Ms <133814250@qq.com>
 // @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
-//
 package admin
 
 import (
@@ -11,7 +10,9 @@ import (
 	"github.com/gogf/gf/v2/util/gconv"
 	"hotgo/api/admin/dept"
 	"hotgo/internal/model/input/adminin"
+	"hotgo/internal/model/input/form"
 	"hotgo/internal/service"
+	"hotgo/utility/validate"
 )
 
 var (
@@ -19,18 +20,6 @@ var (
 )
 
 type cDept struct{}
-
-// NameUnique 名称是否唯一
-func (c *cDept) NameUnique(ctx context.Context, req *dept.NameUniqueReq) (res *dept.NameUniqueRes, err error) {
-	data, err := service.AdminDept().NameUnique(ctx, adminin.DeptNameUniqueInp{Id: req.Id, Name: req.Name})
-	if err != nil {
-		return
-	}
-
-	res = new(dept.NameUniqueRes)
-	res.IsUnique = data.IsUnique
-	return
-}
 
 // Delete 删除
 func (c *cDept) Delete(ctx context.Context, req *dept.DeleteReq) (res *dept.DeleteRes, err error) {
@@ -48,6 +37,10 @@ func (c *cDept) Edit(ctx context.Context, req *dept.EditReq) (res *dept.EditRes,
 	var in adminin.DeptEditInp
 	if err = gconv.Scan(req, &in); err != nil {
 		return nil, err
+	}
+
+	if err = validate.PreFilter(ctx, &in); err != nil {
+		return
 	}
 
 	err = service.AdminDept().Edit(ctx, in)
@@ -102,6 +95,30 @@ func (c *cDept) Status(ctx context.Context, req *dept.StatusReq) (res *dept.Stat
 		return
 	}
 
+	if err = validate.PreFilter(ctx, &in); err != nil {
+		return
+	}
+
 	err = service.AdminDept().Status(ctx, in)
+	return
+}
+
+// Option 获取部门选项树
+func (c *cDept) Option(ctx context.Context, req *dept.OptionReq) (res *dept.OptionRes, err error) {
+	var in adminin.DeptOptionInp
+	if err = gconv.Scan(req, &in); err != nil {
+		return
+	}
+
+	list, totalCount, err := service.AdminDept().Option(ctx, in)
+	if err != nil {
+		return
+	}
+
+	res = new(dept.OptionRes)
+	res.DeptOptionModel = list
+	res.PageCount = form.CalPageCount(totalCount, req.PerPage)
+	res.Page = req.Page
+	res.PerPage = req.PerPage
 	return
 }

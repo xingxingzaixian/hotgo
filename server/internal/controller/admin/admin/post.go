@@ -3,7 +3,6 @@
 // @Copyright  Copyright (c) 2023 HotGo CLI
 // @Author  Ms <133814250@qq.com>
 // @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
-//
 package admin
 
 import (
@@ -28,7 +27,7 @@ func (c *cPost) Delete(ctx context.Context, req *post.DeleteReq) (res *post.Dele
 	}
 
 	err = service.AdminPost().Delete(ctx, in)
-	return res, nil
+	return
 }
 
 // Edit 修改/新增

@@ -8,15 +8,15 @@ package location
 import (
 	"context"
 	"fmt"
-	"github.com/axgle/mahonia"
 	"github.com/gogf/gf/v2/container/gmap"
+	"github.com/gogf/gf/v2/encoding/gcharset"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/text/gstr"
 	"github.com/gogf/gf/v2/util/gconv"
 	"github.com/kayon/iploc"
 	"hotgo/utility/validate"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -67,19 +67,18 @@ func WhoisLocation(ctx context.Context, ip string) (*IpLocationData, error) {
 
 	defer response.Close()
 
-	var (
-		whoisData *WhoisRegionData
-		enc       = mahonia.NewDecoder("gbk")
-		data      = enc.ConvertString(response.ReadAllString())
-	)
+	str, err := gcharset.ToUTF8("GBK", response.ReadAllString())
+	if err != nil {
+		return nil, err
+	}
 
-	if err = gconv.Struct(data, &whoisData); err != nil {
+	var whoisData *WhoisRegionData
+	if err = gconv.Struct([]byte(str), &whoisData); err != nil {
 		return nil, err
 	}
 
 	return &IpLocationData{
-		Ip: whoisData.Ip,
-		//Country      string `json:"country"`
+		Ip:           whoisData.Ip,
 		Region:       whoisData.Addr,
 		Province:     whoisData.Pro,
 		ProvinceCode: gconv.Int64(whoisData.ProCode),
@@ -132,7 +131,7 @@ func GetLocation(ctx context.Context, ip string) (data *IpLocationData, err erro
 	}
 
 	if validate.IsLocalIPAddr(ip) {
-		return nil, fmt.Errorf("must be a public ip:%v", ip)
+		return // nil, fmt.Errorf("must be a public ip:%v", ip)
 	}
 
 	if cacheMap.Contains(ip) {
@@ -169,12 +168,12 @@ func GetPublicIP(ctx context.Context) (ip string, err error) {
 	var data *WhoisRegionData
 	err = g.Client().Timeout(10*time.Second).GetVar(ctx, whoisApi).Scan(&data)
 	if err != nil {
-		g.Log().Infof(ctx, "GetPublicIP alternatives are being tried err:%+v", err)
+		g.Log().Info(ctx, "GetPublicIP fail, alternatives are being tried.")
 		return GetPublicIP2()
 	}
 
 	if data == nil {
-		g.Log().Infof(ctx, "publicIP address Parsing failure, check the network and firewall blocking.")
+		g.Log().Info(ctx, "publicIP address Parsing failure, check the network and firewall blocking.")
 		return "0.0.0.0", nil
 	}
 	return data.Ip, nil
@@ -187,7 +186,7 @@ func GetPublicIP2() (ip string, err error) {
 	}
 	defer response.Body.Close()
 
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return
 	}
@@ -219,6 +218,9 @@ func GetLocalIP() (ip string, err error) {
 
 // GetClientIp 获取客户端IP
 func GetClientIp(r *ghttp.Request) string {
+	if r == nil {
+		return ""
+	}
 	ip := r.Header.Get("X-Forwarded-For")
 	if ip == "" {
 		ip = r.GetClientIp()

@@ -1,3 +1,8 @@
+// Package hook
+// @Link  https://github.com/bufanyun/hotgo
+// @Copyright  Copyright (c) 2023 HotGo CLI
+// @Author  Ms <133814250@qq.com>
+// @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
 package hook
 
 import (
@@ -22,7 +27,6 @@ var CityLabel = gdb.HookHandler{
 				g.Log().Warningf(ctx, "hook.CityLabel parse err:%+v", err)
 			}
 			result[index]["cityLabel"] = gvar.New(cityLabel)
-			return
 		}
 
 		for i, record := range result {

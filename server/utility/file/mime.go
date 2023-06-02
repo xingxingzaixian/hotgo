@@ -3,7 +3,6 @@
 // @Copyright  Copyright (c) 2023 HotGo CLI
 // @Author  Ms <133814250@qq.com>
 // @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
-//
 package file
 
 import (
@@ -11,7 +10,7 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/text/gstr"
-	"io/ioutil"
+	"io"
 	"path"
 )
 
@@ -134,15 +133,10 @@ func Ext(baseName string) string {
 }
 
 // UploadFileByte 获取上传文件的byte
-func UploadFileByte(file *ghttp.UploadFile) (b []byte, err error) {
+func UploadFileByte(file *ghttp.UploadFile) ([]byte, error) {
 	open, err := file.Open()
 	if err != nil {
-		return
+		return nil, err
 	}
-	all, err := ioutil.ReadAll(open)
-	if err != nil {
-		return
-	}
-
-	return all, nil
+	return io.ReadAll(open)
 }

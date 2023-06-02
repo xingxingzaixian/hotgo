@@ -6,6 +6,8 @@ import { ACCESS_TOKEN } from '@/store/mutation-types';
 import { storage } from '@/utils/Storage';
 import { PageEnum } from '@/enums/pageEnum';
 import { ErrorPageRoute } from '@/router/base';
+import { jump } from '@/utils/http/axios';
+import { getNowUrl } from '@/utils/urlUtils';
 
 const LOGIN_PATH = PageEnum.BASE_LOGIN;
 const whitePathList = [LOGIN_PATH]; // no redirect whitelist
@@ -16,6 +18,7 @@ export function createRouterGuards(router: Router) {
   router.beforeEach(async (to, from, next) => {
     const Loading = window['$loading'] || null;
     Loading && Loading.start();
+
     if (from.path === LOGIN_PATH && to.name === 'errorPage') {
       next(PageEnum.BASE_HOME);
       return;
@@ -23,6 +26,7 @@ export function createRouterGuards(router: Router) {
 
     // Whitelist can be directly entered
     if (whitePathList.includes(to.path as PageEnum)) {
+      await userStore.LoadLoginConfig();
       next();
       return;
     }
@@ -35,6 +39,7 @@ export function createRouterGuards(router: Router) {
         next();
         return;
       }
+
       // redirect login page
       const redirectData: { path: string; replace: boolean; query?: Recordable<string> } = {
         path: LOGIN_PATH,
@@ -55,7 +60,24 @@ export function createRouterGuards(router: Router) {
       return;
     }
 
+    const redirectPath = (from.query.redirect || to.path) as string;
+    const redirect = decodeURIComponent(redirectPath);
+    const nextData = to.path === redirect ? { ...to, replace: true } : { path: redirect };
     const userInfo = await userStore.GetInfo();
+    await userStore.LoadLoginConfig();
+
+    // 是否允许获取微信openid
+    if (userStore.allowWxOpenId()) {
+      let path = nextData.path;
+      if (path === LOGIN_PATH) {
+        path = PageEnum.BASE_HOME_REDIRECT;
+      }
+
+      const URI = getNowUrl() + '#' + path;
+      jump('/wechat/authorize', { type: 'openId', syncRedirect: URI });
+      return;
+    }
+
     await userStore.GetConfig();
     const routes = await asyncRouteStore.generateRoutes(userInfo);
 
@@ -70,9 +92,6 @@ export function createRouterGuards(router: Router) {
       router.addRoute(ErrorPageRoute as unknown as RouteRecordRaw);
     }
 
-    const redirectPath = (from.query.redirect || to.path) as string;
-    const redirect = decodeURIComponent(redirectPath);
-    const nextData = to.path === redirect ? { ...to, replace: true } : { path: redirect };
     asyncRouteStore.setDynamicAddedRoute(true);
     next(nextData);
     Loading && Loading.finish();

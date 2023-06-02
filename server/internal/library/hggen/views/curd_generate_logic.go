@@ -3,7 +3,6 @@
 // @Copyright  Copyright (c) 2023 HotGo CLI
 // @Author  Ms <133814250@qq.com>
 // @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
-//
 package views
 
 import (
@@ -20,10 +19,11 @@ const (
 	LogicWhereComments      = "\n\t// 查询%s\n"
 	LogicWhereNoSupport     = "\t// TODO 暂不支持生成[ %s ]查询方式，请自行补充此处代码！"
 	LogicListSimpleSelect   = "\tfields, err := hgorm.GenSelect(ctx, sysin.%sListModel{}, dao.%s)\n\tif err != nil {\n\t\treturn\n\t}"
-	LogicListJoinSelect     = "\t//关联表select\n\tfields, err := hgorm.GenJoinSelect(ctx, %sin.%sListModel{}, dao.%s, []*hgorm.Join{\n%v\t})"
-	LogicListJoinOnRelation = "\t// 关联表%s\n\tmod = mod.%s(hgorm.GenJoinOnRelation(\n\t\tdao.%s.Table(), dao.%s.Columns().%s, // 主表表名,关联条件\n\t\tdao.%s.Table(), \"%s\", dao.%s.Columns().%s, // 关联表表名,别名,关联条件\n\t)...)\n\n"
-	LogicEditUpdate         = "\t\t_, err = s.Model(ctx).\n\t\t\tFieldsEx(\n%s\t\t\t).\n\t\t\tWhere(dao.%s.Columns().%s, in.%s).Data(in).Update()\n\t\treturn "
-	LogicEditInsert         = "\t_, err = s.Model(ctx, &handler.Option{FilterAuth: false}).\n\t\tFieldsEx(\n%s\t\t).\n\t\tData(in).Insert()"
+	LogicListJoinSelect     = "\t//关联表select\n\tfields, err := hgorm.GenJoinSelect(ctx, %sin.%sListModel{}, dao.%s, []*hgorm.Join{\n%v\t})\n\n\tif err != nil {\n\t\terr = gerror.Wrap(err, \"获取%s关联字段失败，请稍后重试！\")\n\t\treturn\n\t}"
+	LogicListJoinOnRelation = "\t// 关联表%s\n\tmod = mod.%s(hgorm.GenJoinOnRelation(\n\t\tdao.%s.Table(), dao.%s.Columns().%s, // 主表表名,关联字段\n\t\tdao.%s.Table(), \"%s\", dao.%s.Columns().%s, // 关联表表名,别名,关联字段\n\t)...)\n\n"
+	LogicEditUpdate         = "\tif _, err = s.Model(ctx%s).\n\t\t\tFields(%sin.%sUpdateFields{}).\n\t\t\tWherePri(in.%s).Data(in).Update(); err != nil {\n\t\t\terr = gerror.Wrap(err, \"修改%s失败，请稍后重试！\")\n\t\t}\n\t\treturn"
+	LogicEditInsert         = "\tif _, err = s.Model(ctx, &handler.Option{FilterAuth: false}).\n\t\tFields(%sin.%sInsertFields{}).\n\t\tData(in).Insert(); err != nil {\n\t\terr = gerror.Wrap(err, \"新增%s失败，请稍后重试！\")\n\t}"
+	LogicEditUnique         = "\t// 验证'%s'唯一\n\tif err = hgorm.IsUnique(ctx, dao.%s, g.Map{dao.%s.Columns().%s: in.%s}, \"%s已存在\", in.Id); err != nil {\n\t\treturn\n\t}\n"
 	LogicSwitchUpdate       = "g.Map{\n\t\tin.Key:                       in.Value,\n%s}"
 	LogicStatusUpdate       = "g.Map{\n\t\tdao.%s.Columns().Status:    in.Status,\n%s}"
 )
@@ -67,18 +67,21 @@ func (l *gCurd) generateLogicSwitchUpdate(ctx context.Context, in *CurdPreviewIn
 func (l *gCurd) generateLogicSwitchFields(ctx context.Context, in *CurdPreviewInput) string {
 	buffer := bytes.NewBuffer(nil)
 	if in.options.Step.HasSwitch {
-		buffer.WriteString("\t\tdao." + in.In.DaoName + ".Columns().Switch,\n")
+		for _, field := range in.masterFields {
+			if field.FormMode == "Switch" {
+				buffer.WriteString("\t\tdao." + in.In.DaoName + ".Columns()." + field.GoName + ",\n")
+			}
+		}
 	}
 	return buffer.String()
 }
 
 func (l *gCurd) generateLogicEdit(ctx context.Context, in *CurdPreviewInput) g.Map {
 	var (
-		data           = make(g.Map)
-		updateFieldsEx = ""
-		updateBuffer   = bytes.NewBuffer(nil)
-		insertFieldsEx = ""
-		insertBuffer   = bytes.NewBuffer(nil)
+		data         = make(g.Map)
+		updateBuffer = bytes.NewBuffer(nil)
+		insertBuffer = bytes.NewBuffer(nil)
+		uniqueBuffer = bytes.NewBuffer(nil)
 	)
 
 	for _, field := range in.masterFields {
@@ -90,20 +93,22 @@ func (l *gCurd) generateLogicEdit(ctx context.Context, in *CurdPreviewInput) g.M
 			insertBuffer.WriteString("\tin.CreatedBy = contexts.GetUserId(ctx)\n")
 		}
 
-		if field.Index == consts.GenCodesIndexPK || field.GoName == "CreatedAt" || field.GoName == "CreatedBy" || field.GoName == "DeletedAt" {
-			updateFieldsEx = updateFieldsEx + "\t\t\t\tdao." + in.In.DaoName + ".Columns()." + field.GoName + ",\n"
-		}
-
-		if field.Index == consts.GenCodesIndexPK || field.GoName == "UpdatedBy" || field.GoName == "DeletedAt" {
-			insertFieldsEx = insertFieldsEx + "\t\t\t\tdao." + in.In.DaoName + ".Columns()." + field.GoName + ",\n"
+		if field.Unique {
+			uniqueBuffer.WriteString(fmt.Sprintf(LogicEditUnique, field.GoName, in.In.DaoName, in.In.DaoName, field.GoName, field.GoName, field.Dc))
 		}
 	}
 
-	updateBuffer.WriteString(fmt.Sprintf(LogicEditUpdate, updateFieldsEx, in.In.DaoName, in.pk.GoName, in.pk.GoName))
-	insertBuffer.WriteString(fmt.Sprintf(LogicEditInsert, insertFieldsEx))
+	notFilterAuth := ""
+	if gstr.InArray(in.options.ColumnOps, "notFilterAuth") {
+		notFilterAuth = ", &handler.Option{FilterAuth: false}"
+	}
+
+	updateBuffer.WriteString(fmt.Sprintf(LogicEditUpdate, notFilterAuth, in.options.TemplateGroup, in.In.VarName, in.pk.GoName, in.In.TableComment))
+	insertBuffer.WriteString(fmt.Sprintf(LogicEditInsert, in.options.TemplateGroup, in.In.VarName, in.In.TableComment))
 
 	data["update"] = updateBuffer.String()
 	data["insert"] = insertBuffer.String()
+	data["unique"] = uniqueBuffer.String()
 	return data
 }
 
@@ -133,13 +138,14 @@ func (l *gCurd) generateLogicListJoin(ctx context.Context, in *CurdPreviewInput)
 			}
 		}
 
-		selectBuffer.WriteString(fmt.Sprintf(LogicListJoinSelect, in.options.TemplateGroup, in.In.VarName, in.In.DaoName, joinSelectRows))
+		selectBuffer.WriteString(fmt.Sprintf(LogicListJoinSelect, in.options.TemplateGroup, in.In.VarName, in.In.DaoName, joinSelectRows, in.In.TableComment))
 
 		data["select"] = selectBuffer.String()
+		data["fields"] = "fields"
 		data["link"] = linkBuffer.String()
 
 	} else {
-		data["select"] = fmt.Sprintf(LogicListSimpleSelect, in.In.VarName, in.In.DaoName)
+		data["fields"] = fmt.Sprintf("%sin.%sListModel{}", in.options.TemplateGroup, in.In.VarName)
 	}
 
 	return data

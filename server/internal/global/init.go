@@ -27,15 +27,16 @@ import (
 )
 
 func Init(ctx context.Context) {
-	_, err := g.Cfg().Get(ctx, "hotgo.debug")
-	if err != nil {
+	// 设置服务日志处理
+	g.Log().SetHandlers(LoggingServeLogHandler)
+
+	if _, err := g.Cfg().Get(ctx, "hotgo.debug"); err != nil {
 		g.Log().Fatal(ctx, "配置读取异常:", err, "\r\n你确定 config/config.yaml 文件存在且格式正确吗？\r\n")
 		return
 	}
-	//g.SetDebug(debug.Bool())
 
 	// 默认上海时区
-	if err = gtime.SetTimeZone("Asia/Shanghai"); err != nil {
+	if err := gtime.SetTimeZone("Asia/Shanghai"); err != nil {
 		g.Log().Fatalf(ctx, "时区设置异常 err：%+v", err)
 		return
 	}
@@ -46,14 +47,17 @@ func Init(ctx context.Context) {
 	// 设置缓存适配器
 	cache.SetAdapter(ctx)
 
-	// 设置服务日志处理
-	g.Log().SetHandlers(LoggingServeLogHandler)
-
 	// 启动服务监控
 	service.AdminMonitor().StartMonitor(ctx)
 
 	// 加载ip访问黑名单
 	service.SysBlacklist().Load(ctx)
+
+	// 初始化功能库配置
+	service.SysConfig().InitConfig(ctx)
+
+	// 注册支付成功回调方法
+	payNotifyCall()
 
 	// 初始化生成代码配置
 	hggen.InIt(ctx)

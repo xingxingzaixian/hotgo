@@ -10,13 +10,11 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/os/gcmd"
-	"hotgo/internal/crons"
 	"hotgo/internal/library/addons"
 	"hotgo/internal/library/casbin"
 	"hotgo/internal/router"
 	"hotgo/internal/service"
 	"hotgo/internal/websocket"
-	"os"
 )
 
 var (
@@ -38,7 +36,10 @@ var (
 				r.Response.Writeln("403 - 网站拒绝显示此网页")
 			})
 
-			// 请求结束事件回调
+			// 初始化请求前回调
+			s.BindHookHandler("/*any", ghttp.HookBeforeServe, service.Hook().BeforeServe)
+
+			// 请求响应结束后回调
 			s.BindHookHandler("/*any", ghttp.HookAfterOutput, service.Hook().AfterOutput)
 
 			s.Group("/", func(group *ghttp.RouterGroup) {
@@ -68,26 +69,28 @@ var (
 				addons.RegisterModulesRouter(ctx, group)
 			})
 
-			// 启动定时任务
-			service.SysCron().StartCron(ctx)
-
-			//// 启动TCP服务
-			//service.TCPServer().Start(ctx)
+			// 启动tcp服务
+			service.TCPServer().Start(ctx)
 
 			// https
 			setSSL(ctx, s)
 
-			// 退出信号监听
-			signalListen(ctx, func(sig os.Signal) {
-				s.Shutdown()
-				crons.StopALL()
+			serverWg.Add(1)
+
+			// 信号监听
+			signalListen(ctx, signalHandlerForOverall)
+
+			go func() {
+				<-serverCloseSignal
 				websocket.Stop()
-				//service.TCPServer().Stop(ctx)
-			})
+				service.TCPServer().Stop(ctx)
+				_ = s.Shutdown() // 主服务建议放在最后一个关闭
+				g.Log().Debug(ctx, "http successfully closed ..")
+				serverWg.Done()
+			}()
 
 			// Just run the server.
 			s.Run()
-
 			return
 		},
 	}

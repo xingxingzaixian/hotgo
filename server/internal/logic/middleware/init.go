@@ -6,40 +6,47 @@
 package middleware
 
 import (
-	"github.com/gogf/gf/v2/crypto/gmd5"
+	"context"
+	"fmt"
+	"github.com/gogf/gf/v2/encoding/gjson"
 	"github.com/gogf/gf/v2/errors/gcode"
-	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/text/gstr"
-	"github.com/gogf/gf/v2/util/gconv"
 	"hotgo/internal/consts"
 	"hotgo/internal/library/addons"
-	"hotgo/internal/library/cache"
 	"hotgo/internal/library/contexts"
-	"hotgo/internal/library/jwt"
 	"hotgo/internal/library/response"
+	"hotgo/internal/library/token"
 	"hotgo/internal/model"
 	"hotgo/internal/service"
+	"hotgo/utility/validate"
 	"net/http"
 	"strings"
 )
 
 type sMiddleware struct {
-	LoginUrl      string // 登录路由地址
-	DemoWhiteList g.Map  // 演示模式放行的路由白名單
+	LoginUrl        string // 登录路由地址
+	DemoWhiteList   g.Map  // 演示模式放行的路由白名单
+	PayNotifyRoutes g.Map  // 支付异步通知路由
 }
 
 func init() {
-	service.RegisterMiddleware(New())
+	service.RegisterMiddleware(NewMiddleware())
 }
 
-func New() *sMiddleware {
+func NewMiddleware() *sMiddleware {
 	return &sMiddleware{
 		LoginUrl: "/common",
 		DemoWhiteList: g.Map{
-			"/admin/site/login":       struct{}{}, // 后台登录
-			"/admin/genCodes/preview": struct{}{}, // 预览代码
+			"/admin/site/accountLogin": struct{}{}, // 账号登录
+			"/admin/site/mobileLogin":  struct{}{}, // 手机号登录
+			"/admin/genCodes/preview":  struct{}{}, // 预览代码
+		},
+		PayNotifyRoutes: g.Map{
+			"/api/pay/notify/alipay": struct{}{}, // 支付宝
+			"/api/pay/notify/wxpay":  struct{}{}, // 微信支付
+			"/api/pay/notify/qqpay":  struct{}{}, // QQ支付
 		},
 	}
 }
@@ -51,6 +58,7 @@ func (s *sMiddleware) Ctx(r *ghttp.Request) {
 		Module: getModule(r.URL.Path),
 	})
 
+	contexts.SetData(r.Context(), "request.body", gjson.New(r.GetBodyString()))
 	r.Middleware.Next()
 }
 
@@ -116,77 +124,38 @@ func (s *sMiddleware) Addon(r *ghttp.Request) {
 	r.Middleware.Next()
 }
 
-// inspectAuth 检查并完成身份认证
-func inspectAuth(r *ghttp.Request, appName string) error {
-	var (
-		ctx           = r.Context()
-		user          = new(model.Identity)
-		authorization = jwt.GetAuthorization(r)
-		customCtx     = &model.Context{}
-	)
-
-	if authorization == "" {
-		return gerror.New("请先登录！")
+// deliverUserContext 将用户信息传递到上下文中
+func deliverUserContext(r *ghttp.Request) (err error) {
+	user, err := token.ParseLoginUser(r)
+	if err != nil {
+		return
 	}
+	contexts.SetUser(r.Context(), user)
+	return
+}
 
-	// 获取jwtToken
-	jwtToken := consts.CacheJwtToken + gmd5.MustEncryptString(authorization)
-	jwtSign := g.Cfg().MustGet(ctx, "jwt.sign", "hotgo")
+// isExceptAuth 是否是不需要验证权限的路由地址
+func isExceptAuth(ctx context.Context, appName, path string) bool {
+	pathList := g.Cfg().MustGet(ctx, fmt.Sprintf("router.%v.exceptAuth", appName)).Strings()
 
-	data, ParseErr := jwt.ParseToken(authorization, jwtSign.Bytes())
-	if ParseErr != nil {
-		return gerror.Newf("token不正确或已过期! err :%+v", ParseErr.Error())
-	}
-
-	parseErr := gconv.Struct(data, &user)
-	if parseErr != nil {
-		return gerror.Newf("登录信息解析异常，请重新登录！ err :%+v", ParseErr.Error())
-	}
-
-	// 判断token跟redis的缓存的token是否一样
-	isContains, containsErr := cache.Instance().Contains(ctx, jwtToken)
-	if containsErr != nil {
-		return gerror.Newf("token无效！ err :%+v", ParseErr.Error())
-	}
-	if !isContains {
-		return gerror.Newf("token已过期")
-	}
-
-	// 是否开启多端登录
-	if !g.Cfg().MustGet(ctx, "jwt.multiPort", true).Bool() {
-		key := consts.CacheJwtUserBind + appName + ":" + gconv.String(user.Id)
-		originJwtToken, originErr := cache.Instance().Get(ctx, key)
-		if originErr != nil {
-			return gerror.Newf("信息异常，请重新登录！ err :%+v", originErr.Error())
-		}
-
-		if originJwtToken == nil || originJwtToken.IsEmpty() {
-			return gerror.New("token已过期！")
-		}
-
-		if jwtToken != originJwtToken.String() {
-			return gerror.New("账号已在其他地方登录！")
+	for i := 0; i < len(pathList); i++ {
+		if validate.InSliceExistStr(pathList[i], path) {
+			return true
 		}
 	}
 
-	// 保存到上下文
-	if user != nil {
-		customCtx.User = &model.Identity{
-			Id:       user.Id,
-			Pid:      user.Pid,
-			DeptId:   user.DeptId,
-			RoleId:   user.RoleId,
-			RoleKey:  user.RoleKey,
-			Username: user.Username,
-			RealName: user.RealName,
-			Avatar:   user.Avatar,
-			Email:    user.Email,
-			Mobile:   user.Mobile,
-			Exp:      user.Exp,
-			Expires:  user.Expires,
-			App:      user.App,
+	return false
+}
+
+// isExceptLogin 是否是不需要登录的路由地址
+func isExceptLogin(ctx context.Context, appName, path string) bool {
+	pathList := g.Cfg().MustGet(ctx, fmt.Sprintf("router.%v.exceptLogin", appName)).Strings()
+
+	for i := 0; i < len(pathList); i++ {
+		if validate.InSliceExistStr(pathList[i], path) {
+			return true
 		}
 	}
-	contexts.SetUser(ctx, customCtx.User)
-	return nil
+
+	return false
 }

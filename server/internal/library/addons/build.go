@@ -27,6 +27,7 @@ func Build(ctx context.Context, sk Skeleton, conf *model.BuildAddonConfig) (err 
 			"@{.description}": sk.Description,
 			"@{.author}":      sk.Author,
 			"@{.version}":     sk.Version,
+			"@{.hgVersion}":   consts.VersionApp, // HG 版本
 		}
 	)
 
@@ -38,6 +39,10 @@ func Build(ctx context.Context, sk Skeleton, conf *model.BuildAddonConfig) (err 
 	list, err := gfile.ScanDirFunc(conf.SrcPath, "*", true, func(path string) string {
 		return path
 	})
+
+	if err != nil {
+		return
+	}
 
 	for _, path := range list {
 		if !gfile.IsReadable(path) {

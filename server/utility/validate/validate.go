@@ -3,7 +3,6 @@
 // @Copyright  Copyright (c) 2023 HotGo CLI
 // @Author  Ms <133814250@qq.com>
 // @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
-//
 package validate
 
 import (
@@ -14,6 +13,7 @@ import (
 	"net"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -30,25 +30,15 @@ func IsDNSName(s string) bool {
 func IsHTTPS(ctx context.Context) bool {
 	r := ghttp.RequestFromCtx(ctx)
 	if r == nil {
-		g.Log().Infof(ctx, "IsHTTPS ctx not request")
+		g.Log().Info(ctx, "IsHTTPS ctx not request")
 		return false
 	}
-	var (
-		proto = r.Header.Get("X-Forwarded-Proto")
-	)
-
-	if r.TLS != nil || gstr.Equal(proto, "https") {
-		return true
-	}
-	return false
+	return r.TLS != nil || gstr.Equal(r.Header.Get("X-Forwarded-Proto"), "https")
 }
 
 // IsIp 是否为ipv4
 func IsIp(ip string) bool {
-	if net.ParseIP(ip) != nil {
-		return true
-	}
-	return false
+	return net.ParseIP(ip) != nil
 }
 
 // IsPublicIp 是否是公网IP
@@ -62,9 +52,7 @@ func IsPublicIp(Ip string) bool {
 	if ip4 := ip.To4(); ip4 != nil {
 		return !ip.Equal(net.IPv4bcast)
 	}
-
 	return true
-
 }
 
 // IsLocalIPAddr 检测 IP 地址字符串是否是内网地址
@@ -148,4 +136,57 @@ func IsSameMinute(t1, t2 int64) bool {
 	d1 := time.Unix(t1, 0).Format("2006-01-02 15:04")
 	d2 := time.Unix(t2, 0).Format("2006-01-02 15:04")
 	return d1 == d2
+}
+
+// IsMobileVisit 是否为移动端访问
+func IsMobileVisit(userAgent string) bool {
+	if len(userAgent) == 0 {
+		return false
+	}
+
+	is := false
+	mobileKeywords := []string{"Mobile", "Android", "Silk/", "Kindle", "BlackBerry", "Opera Mini", "Opera Mobi"}
+	for i := 0; i < len(mobileKeywords); i++ {
+		if strings.Contains(userAgent, mobileKeywords[i]) {
+			is = true
+			break
+		}
+	}
+	return is
+}
+
+// IsWxBrowserVisit 是否为微信访问
+func IsWxBrowserVisit(userAgent string) bool {
+	if len(userAgent) == 0 {
+		return false
+	}
+
+	is := false
+	userAgent = strings.ToLower(userAgent)
+	mobileKeywords := []string{"MicroMessenger"}
+	for i := 0; i < len(mobileKeywords); i++ {
+		if strings.Contains(userAgent, strings.ToLower(mobileKeywords[i])) {
+			is = true
+			break
+		}
+	}
+	return is
+}
+
+// IsWxMiniProgramVisit 是否为微信小程序访问
+func IsWxMiniProgramVisit(userAgent string) bool {
+	if len(userAgent) == 0 {
+		return false
+	}
+
+	is := false
+	userAgent = strings.ToLower(userAgent)
+	mobileKeywords := []string{"miniProgram"}
+	for i := 0; i < len(mobileKeywords); i++ {
+		if strings.Contains(userAgent, strings.ToLower(mobileKeywords[i])) {
+			is = true
+			break
+		}
+	}
+	return is
 }

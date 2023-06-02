@@ -3,7 +3,6 @@
 // @Copyright  Copyright (c) 2023 HotGo CLI
 // @Author  Ms <133814250@qq.com>
 // @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
-//
 package sys
 
 import (
@@ -13,6 +12,7 @@ import (
 	"hotgo/internal/model/input/form"
 	"hotgo/internal/model/input/sysin"
 	"hotgo/internal/service"
+	"hotgo/utility/validate"
 )
 
 var (
@@ -39,8 +39,12 @@ func (c *cCronGroup) Edit(ctx context.Context, req *cron.GroupEditReq) (res *cro
 		return
 	}
 
+	if err = validate.PreFilter(ctx, &in); err != nil {
+		return
+	}
+
 	err = service.SysCronGroup().Edit(ctx, in)
-	return res, nil
+	return
 }
 
 // MaxSort 最大排序
@@ -94,12 +98,16 @@ func (c *cCronGroup) Status(ctx context.Context, req *cron.GroupStatusReq) (res 
 		return
 	}
 
+	if err = validate.PreFilter(ctx, &in); err != nil {
+		return
+	}
+
 	err = service.SysCronGroup().Status(ctx, in)
-	return res, nil
+	return
 }
 
 // Select 选项
-func (c *cCronGroup) Select(ctx context.Context, req *cron.GroupSelectReq) (res *cron.GroupSelectRes, err error) {
+func (c *cCronGroup) Select(ctx context.Context, _ *cron.GroupSelectReq) (res *cron.GroupSelectRes, err error) {
 	data, err := service.SysCronGroup().Select(ctx, sysin.CronGroupSelectInp{})
 	if err != nil {
 		return

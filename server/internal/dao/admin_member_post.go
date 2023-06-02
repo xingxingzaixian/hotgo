@@ -7,8 +7,6 @@ package dao
 import (
 	"context"
 	"github.com/gogf/gf/v2/errors/gerror"
-	"github.com/gogf/gf/v2/frame/g"
-	"hotgo/internal/consts"
 	"hotgo/internal/dao/internal"
 	"hotgo/internal/model/entity"
 )
@@ -31,7 +29,6 @@ var (
 
 // UpdatePostIds 更新管理员岗位
 func (dao *adminMemberPostDao) UpdatePostIds(ctx context.Context, memberId int64, postIds []int64) (err error) {
-	g.DumpWithType(postIds)
 	_, err = dao.Ctx(ctx).
 		Where("member_id", memberId).
 		Delete()
@@ -53,23 +50,4 @@ func (dao *adminMemberPostDao) UpdatePostIds(ctx context.Context, memberId int64
 	}
 
 	return nil
-}
-
-// GetMemberByIds 获取指定关联员的岗位ids
-func (dao *adminMemberPostDao) GetMemberByIds(ctx context.Context, memberId int64) (postIds []int64, err error) {
-	var list []*entity.AdminMemberPost
-	err = dao.Ctx(ctx).
-		Fields("post_id").
-		Where("member_id", memberId).
-		Scan(&list)
-	if err != nil {
-		err = gerror.Wrap(err, consts.ErrorORM)
-		return postIds, err
-	}
-
-	for i := 0; i < len(list); i++ {
-		postIds = append(postIds, list[i].PostId)
-	}
-
-	return postIds, nil
 }

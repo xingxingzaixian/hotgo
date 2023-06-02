@@ -3,21 +3,23 @@
 // @Copyright  Copyright (c) 2023 HotGo CLI
 // @Author  Ms <133814250@qq.com>
 // @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
-//
 package admin
 
 import (
 	"context"
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
-	"github.com/gogf/gf/v2/os/gtime"
+	"github.com/gogf/gf/v2/frame/g"
 	"hotgo/internal/consts"
 	"hotgo/internal/dao"
+	"hotgo/internal/library/contexts"
 	"hotgo/internal/library/hgorm"
 	"hotgo/internal/model/entity"
 	"hotgo/internal/model/input/adminin"
+	"hotgo/internal/model/input/form"
 	"hotgo/internal/service"
 	"hotgo/utility/convert"
-	"hotgo/utility/validate"
+	"hotgo/utility/tree"
 )
 
 type sAdminDept struct{}
@@ -28,18 +30,6 @@ func NewAdminDept() *sAdminDept {
 
 func init() {
 	service.RegisterAdminDept(NewAdminDept())
-}
-
-// NameUnique 菜单名称是否唯一
-func (s *sAdminDept) NameUnique(ctx context.Context, in adminin.DeptNameUniqueInp) (res *adminin.DeptNameUniqueModel, err error) {
-	isUnique, err := dao.AdminDept.IsUniqueName(ctx, in.Id, in.Name)
-	if err != nil {
-		return
-	}
-
-	res = new(adminin.DeptNameUniqueModel)
-	res.IsUnique = isUnique
-	return
 }
 
 // Delete 删除
@@ -68,18 +58,7 @@ func (s *sAdminDept) Delete(ctx context.Context, in adminin.DeptDeleteInp) (err 
 
 // Edit 修改/新增
 func (s *sAdminDept) Edit(ctx context.Context, in adminin.DeptEditInp) (err error) {
-	if in.Name == "" {
-		err = gerror.New("名称不能为空")
-		return
-	}
-
-	uniqueName, err := dao.AdminDept.IsUniqueName(ctx, in.Id, in.Name)
-	if err != nil {
-		err = gerror.Wrap(err, consts.ErrorORM)
-		return
-	}
-	if !uniqueName {
-		err = gerror.New("名称已存在")
+	if err = hgorm.IsUnique(ctx, dao.AdminDept, g.Map{dao.AdminDept.Columns().Name: in.Name}, "名称已存在", in.Id); err != nil {
 		return
 	}
 
@@ -89,41 +68,66 @@ func (s *sAdminDept) Edit(ctx context.Context, in adminin.DeptEditInp) (err erro
 
 	// 修改
 	if in.Id > 0 {
-		_, err = dao.AdminDept.Ctx(ctx).Where("id", in.Id).Data(in).Update()
+
+		// 获取父级tree
+		var pTree gdb.Value
+		pTree, err = dao.AdminDept.Ctx(ctx).Where("id", in.Pid).Fields("tree").Value()
+		if err != nil {
+			return
+		}
+		in.Tree = tree.GenLabel(pTree.String(), in.Id)
+
+		err = dao.AdminDept.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+			// 更新数据
+			_, err = dao.AdminDept.Ctx(ctx).Fields(adminin.DeptUpdateFields{}).WherePri(in.Id).Data(in).Update()
+			if err != nil {
+				return err
+			}
+
+			// 如果当前部门有子级,更新子级tree关系树
+			return updateChildrenTree(ctx, in.Id, in.Level, in.Tree)
+		})
+
 		return
 	}
 
 	// 新增
-	_, err = dao.AdminDept.Ctx(ctx).Data(in).Insert()
+	_, err = dao.AdminDept.Ctx(ctx).Fields(adminin.DeptInsertFields{}).Data(in).Insert()
+	return
+}
+
+func updateChildrenTree(ctx context.Context, _id int64, _level int, _tree string) (err error) {
+	var list []*entity.AdminDept
+	err = dao.AdminDept.Ctx(ctx).Where("pid", _id).Scan(&list)
+	if err != nil {
+		return
+	}
+	for _, child := range list {
+		child.Level = _level + 1
+		child.Tree = tree.GenLabel(_tree, child.Id)
+
+		_, err = dao.AdminDept.Ctx(ctx).Where("id", child.Id).Data("level", child.Level, "tree", child.Tree).Update()
+		if err != nil {
+			return err
+		}
+		err = updateChildrenTree(ctx, child.Id, child.Level, child.Tree)
+		if err != nil {
+			return
+		}
+	}
 	return
 }
 
 // Status 更新部门状态
 func (s *sAdminDept) Status(ctx context.Context, in adminin.DeptStatusInp) (err error) {
-	if in.Id <= 0 {
-		err = gerror.New("ID不能为空")
-		return
+	if _, err = dao.AdminDept.Ctx(ctx).Where("id", in.Id).Data("status", in.Status).Update(); err != nil {
+		err = gerror.Wrap(err, consts.ErrorORM)
 	}
-
-	if in.Status <= 0 {
-		err = gerror.New("状态不能为空")
-		return
-	}
-
-	if !validate.InSliceInt(consts.StatusMap, in.Status) {
-		err = gerror.New("状态不正确")
-		return
-	}
-
-	// 修改
-	in.UpdatedAt = gtime.Now()
-	_, err = dao.AdminDept.Ctx(ctx).Where("id", in.Id).Data("status", in.Status).Update()
 	return
 }
 
 // MaxSort 最大排序
 func (s *sAdminDept) MaxSort(ctx context.Context, in adminin.DeptMaxSortInp) (res *adminin.DeptMaxSortModel, err error) {
-	res = new(adminin.DeptMaxSortModel)
 	if in.Id > 0 {
 		if err = dao.AdminDept.Ctx(ctx).Where("id", in.Id).Order("sort desc").Scan(&res); err != nil {
 			err = gerror.Wrap(err, consts.ErrorORM)
@@ -131,13 +135,47 @@ func (s *sAdminDept) MaxSort(ctx context.Context, in adminin.DeptMaxSortInp) (re
 		}
 	}
 
-	res.Sort = res.Sort + 10
+	if res == nil {
+		res = new(adminin.DeptMaxSortModel)
+	}
+
+	res.Sort = form.DefaultMaxSort(ctx, res.Sort)
 	return
 }
 
 // View 获取指定字典类型信息
 func (s *sAdminDept) View(ctx context.Context, in adminin.DeptViewInp) (res *adminin.DeptViewModel, err error) {
 	err = dao.AdminDept.Ctx(ctx).Where("id", in.Id).Scan(&res)
+	return
+}
+
+// Option 选项
+func (s *sAdminDept) Option(ctx context.Context, in adminin.DeptOptionInp) (res *adminin.DeptOptionModel, totalCount int, err error) {
+	var (
+		mod    = dao.AdminDept.Ctx(ctx)
+		models []*entity.AdminDept
+		pid    int64 = 0
+	)
+
+	// 非超管只获取下级
+	if !service.AdminMember().VerifySuperId(ctx, contexts.GetUserId(ctx)) {
+		pid = contexts.GetUser(ctx).DeptId
+		mod = mod.WhereLike(dao.AdminDept.Columns().Tree, "%"+tree.GetIdLabel(pid)+"%")
+	}
+
+	totalCount, err = mod.Count()
+	if err != nil {
+		err = gerror.Wrap(err, consts.ErrorORM)
+		return
+	}
+
+	if err = mod.Page(in.Page, in.PerPage).Order("sort asc,id asc").Scan(&models); err != nil {
+		err = gerror.Wrap(err, consts.ErrorORM)
+		return
+	}
+
+	res = new(adminin.DeptOptionModel)
+	res.List = s.treeList(pid, models)
 	return
 }
 
@@ -168,7 +206,8 @@ func (s *sAdminDept) List(ctx context.Context, in adminin.DeptListInp) (res *adm
 	}
 
 	if in.Code != "" {
-		values, err := dao.AdminDept.Ctx(ctx).Fields("pid").WhereLike("code", "%"+in.Code+"%").Array()
+		values, err := dao.AdminDept.Ctx(ctx).Fields("pid").
+			WhereLike("code", "%"+in.Code+"%").Array()
 		if err != nil {
 			err = gerror.Wrap(err, consts.ErrorORM)
 			return nil, err
@@ -202,10 +241,7 @@ func (s *sAdminDept) List(ctx context.Context, in adminin.DeptListInp) (res *adm
 // GetName 获取部门名称
 func (s *sAdminDept) GetName(ctx context.Context, id int64) (name string, err error) {
 	var data entity.AdminDept
-	err = dao.AdminDept.Ctx(ctx).
-		Where("id", id).
-		Fields("name").
-		Scan(&data)
+	err = dao.AdminDept.Ctx(ctx).Where("id", id).Fields("name").Scan(&data)
 	if err != nil {
 		err = gerror.Wrap(err, consts.ErrorORM)
 		return name, err

@@ -3,11 +3,11 @@
 // @Copyright  Copyright (c) 2023 HotGo CLI
 // @Author  Ms <133814250@qq.com>
 // @License  https://github.com/bufanyun/hotgo/blob/master/LICENSE
-//
 package useragent
 
 import (
 	"fmt"
+	"github.com/gogf/gf/v2/text/gstr"
 	"regexp"
 	"strings"
 )
@@ -19,7 +19,7 @@ func GetOs(userAgent string) string {
 		return osName
 	}
 
-	strRe, _ := regexp.Compile("(?i:\\((.*?)\\))")
+	strRe, _ := regexp.Compile(`(?i:\((.*?)\))`)
 	userAgent = strRe.FindString(userAgent)
 
 	levelNames := ":micromessenger:dart:Windows NT:Windows Mobile:Windows Phone:Windows Phone OS:Macintosh|Macintosh:Mac OS:CrOS|CrOS:iPhone OS:iPad|iPad:OS:Android:Linux:blackberry:hpwOS:Series:Symbian:PalmOS:SymbianOS:J2ME:Sailfish:Bada:MeeGo:webOS|hpwOS:Maemo:"
@@ -42,9 +42,8 @@ func GetOs(userAgent string) string {
 			} else if strings.Contains(name, s) {
 				name = strings.TrimSpace(s)
 			} else if !strings.Contains(s, name) {
-				if strings.Contains(name, "iPhone") ||
-					strings.Contains(name, "iPad") {
-					s = strings.Trim(s, "Mac OS X")
+				if strings.Contains(name, "iPhone") || strings.Contains(name, "iPad") {
+					s = gstr.Trim(s, "Mac OS X")
 				}
 
 				if s != "" {
@@ -84,7 +83,7 @@ func GetBrowser(userAgent string) string {
 
 	level := 0
 	for _, name := range names {
-		replaceRe, _ := regexp.Compile("(?i:[\\s?\\/0-9.]+)")
+		replaceRe, _ := regexp.Compile(`(?i:[\s?\/0-9.]+)`)
 		n := replaceRe.ReplaceAllString(name, "")
 		l := strings.Index(levelNames, fmt.Sprintf(":%s:", n))
 		if level == 0 {
